@@ -1,0 +1,40 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+def get_historical_data_yahoo(symbol, start_date, end_date):
+    data = yf.download(symbol, start=start_date, end=end_date)
+    # Adjusted Close Price is typically used for stock price analysis
+    return pd.DataFrame(data['Adj Close'])
+
+def calculate_moving_averages(data, short_window, long_window):
+    signals = pd.DataFrame(index=data.index)
+    signals['price'] = data['Adj Close']
+    signals['short_mavg'] = signals['price'].rolling(window=short_window, min_periods=1).mean()
+    signals['long_mavg'] = signals['price'].rolling(window=long_window, min_periods=1).mean()
+    signals['signal'] = 0.0
+    signals['signal'][short_window:] = np.where(signals['short_mavg'][short_window:] > signals['long_mavg'][short_window:], 1.0, 0.0)
+    signals['positions'] = signals['signal'].diff()
+    return signals
+
+def plot_data(data, signals):
+    plt.figure(figsize=(14, 7))
+    plt.plot(data.index, data['Adj Close'], label='Adjusted Close Price', alpha=0.3)
+    plt.plot(data.index, signals['short_mavg'], label='Short Moving Average', alpha=0.7)
+    plt.plot(data.index, signals['long_mavg'], label='Long Moving Average', alpha=0.7)
+    plt.plot(signals.loc[signals.positions == 1.0].index, signals.short_mavg[signals.positions == 1.0], '^', markersize=10, color='g', lw=0, label='Buy Signal')
+    plt.plot(signals.loc[signals.positions == -1.0].index, signals.short_mavg[signals.positions == -1.0], 'v', markersize=10, color='r', lw=0, label='Sell Signal')
+    plt.title('Stock Price and Moving Averages')
+    plt.legend(loc='best')
+    plt.show()
+
+if __name__ == '__main__':
+    symbol = 'AAPL'
+    start_date = '2022-01-01'
+    end_date = '2024-04-01'
+    data = get_historical_data_yahoo(symbol, start_date, end_date)
+    short_window = 40
+    long_window = 100
+    signals = calculate_moving_averages(data, short_window, long_window)
+    plot_data(data, signals)
